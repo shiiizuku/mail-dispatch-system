@@ -78,7 +78,9 @@ export function LetterForm({
   const router = useRouter();
 
   const [mailDate, setMailDate] = useState(defaultDate);
-  const [service, setService] = useState<'REGISTERED' | 'ORDINARY'>(remail?.service ?? 'REGISTERED');
+  const [service, setService] = useState<'REGISTERED' | 'ORDINARY'>(
+    remail?.service ?? 'REGISTERED',
+  );
   const [weight, setWeight] = useState(String(remail?.weightGrams ?? 20));
   const [docRefs, setDocRefs] = useState(remail?.docRefs.join('\n') ?? '');
   const [remarks, setRemarks] = useState('');
@@ -130,17 +132,17 @@ export function LetterForm({
       <h2 id="new-letter">{remail ? `Remail ${remail.controlNo}` : 'New letter'}</h2>
 
       {remail && (
-        <p className="picked">
-          <span>
-            Sending {remail.controlNo} again as a new letter, with new stamps and a new control
-            number.
-            {remail.status === 'RELEASED' && ` ${remail.controlNo} will be marked returned.`} Fix the
-            address below if that is why it came back.
+        <div className="notice info" role="note">
+          <span className="grow">
+            Sending <span className="tracking-number">{remail.controlNo}</span> again as a new
+            letter, with new stamps and a new control number.
+            {remail.status === 'RELEASED' && ` ${remail.controlNo} will be marked returned.`} Fix
+            the address below if that is why it came back.
           </span>
           <Link href="/" scroll={false}>
             Cancel
           </Link>
-        </p>
+        </div>
       )}
       <input type="hidden" name="remailOf" value={remail?.id ?? ''} />
 
@@ -178,14 +180,16 @@ export function LetterForm({
             <label htmlFor="mailDate" className="req">
               Mail date
             </label>
-            <input
-              type="date"
-              id="mailDate"
-              name="mailDate"
-              required
-              value={mailDate}
-              onChange={(e) => setMailDate(e.target.value)}
-            />
+            <div className="date-wrap">
+              <input
+                type="date"
+                id="mailDate"
+                name="mailDate"
+                required
+                value={mailDate}
+                onChange={(e) => setMailDate(e.target.value)}
+              />
+            </div>
           </div>
           <div className="field">
             <label htmlFor="weightGrams" className="req">
@@ -233,12 +237,14 @@ export function LetterForm({
         <RecipientSearch onPick={(r) => setRecipient(fromRecipient(r))} />
 
         {recipient.id && (
-          <p className="picked">
-            <span>Editing a saved recipient. Changes here update the address book.</span>
+          <div className="notice info" role="note">
+            <span className="grow">
+              Editing a saved recipient. Changes here update the address book.
+            </span>
             <button type="button" className="link" onClick={() => setRecipient(EMPTY_RECIPIENT)}>
               Clear
             </button>
-          </p>
+          </div>
         )}
         <input type="hidden" name="recipientId" value={recipient.id} />
 
@@ -306,23 +312,25 @@ export function LetterForm({
             <label htmlFor="province" className="req">
               Province
             </label>
-            <select
-              id="province"
-              name="province"
-              required
-              value={recipient.province}
-              onChange={(e) => set('province', e.target.value)}
-              aria-describedby="province-hint"
-            >
-              <option value="">Choose…</option>
-              {PROVINCES_BY_ZONE.map(([zone, list]) => (
-                <optgroup key={zone} label={ZONE_LABELS[zone] ?? zone}>
-                  {list.map((p) => (
-                    <option key={p}>{p}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
+            <div className="select-wrap">
+              <select
+                id="province"
+                name="province"
+                required
+                value={recipient.province}
+                onChange={(e) => set('province', e.target.value)}
+                aria-describedby="province-hint"
+              >
+                <option value="">Choose…</option>
+                {PROVINCES_BY_ZONE.map(([zone, list]) => (
+                  <optgroup key={zone} label={ZONE_LABELS[zone] ?? zone}>
+                    {list.map((p) => (
+                      <option key={p}>{p}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
             <span id="province-hint" className="hint">
               Sets the postage zone.
             </span>
@@ -504,9 +512,16 @@ function PostageBox(props: {
   }, [service, province, lastMile, weight, refreshKey]);
 
   return (
-    <section className="postage" aria-live="polite" aria-label="Postage">
+    <section className="postage" aria-live="polite" aria-labelledby="postage-h">
+      <span className="eyebrow" id="postage-h">
+        Postage
+      </span>
       {!result && <span className="hint">Choose a province and weight to see the postage.</span>}
-      {result && !result.ok && <span className="notice err">{result.message}</span>}
+      {result && !result.ok && (
+        <div className="notice err" style={{ margin: 0 }}>
+          {result.message}
+        </div>
+      )}
       {result?.ok && (
         <>
           <div>
@@ -515,7 +530,10 @@ function PostageBox(props: {
               ₱{result.preview.quote.baseRate}
               {result.preview.quote.returnCardFee > 0 &&
                 ` + ₱${result.preview.quote.returnCardFee} return card`}{' '}
-              · {result.preview.quote.source === 'card' ? 'PHLPost rate card' : result.preview.quote.source}
+              ·{' '}
+              {result.preview.quote.source === 'card'
+                ? 'PHLPost rate card'
+                : result.preview.quote.source}
             </span>
           </div>
           {result.preview.stamps ? (
@@ -533,7 +551,9 @@ function PostageBox(props: {
               </div>
             </>
           ) : (
-            <div className="notice err">Not enough stamps in stock. Add stamps first.</div>
+            <div className="notice err" style={{ margin: '0.75rem 0 0' }}>
+              Not enough stamps in stock. Add stamps on the Stamps page first.
+            </div>
           )}
         </>
       )}

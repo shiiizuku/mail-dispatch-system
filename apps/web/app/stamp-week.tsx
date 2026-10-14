@@ -2,6 +2,8 @@
 
 import { useId, useState } from 'react';
 import type { LedgerRow } from '@mds/mail';
+import { EmptyState } from './ui';
+import { PreviewDialog } from './preview-dialog';
 
 /**
  * This week's stamps: what the requisition slip will ask for and what the accountability report
@@ -20,6 +22,7 @@ export function StampWeek(props: {
   const [copied, setCopied] = useState<'ok' | 'failed' | null>(null);
   const issued = rows.reduce((sum, r) => sum + r.issued * r.denomination, 0);
   const anything = rows.some((r) => r.issued > 0);
+  const slipUrl = `/reports/ris?date=${from}&on=${slipDate}`;
 
   const copy = async () => {
     try {
@@ -42,10 +45,13 @@ export function StampWeek(props: {
   };
 
   return (
-    <section className="card" aria-labelledby={`${id}-h`} style={{ marginTop: '1.25rem' }}>
-      <h2 id={`${id}-h`}>Stamps this week ({label})</h2>
+    <section aria-labelledby={`${id}-h`}>
+      <span className="eyebrow">{label}</span>
+      <h2 id={`${id}-h`}>Stamps this week</h2>
       {rows.length === 0 ? (
-        <p className="empty">No stamps on record yet. Add them on the Stamps page.</p>
+        <EmptyState title="No stamps on record">
+          Add the stamps on hand on the Stamps page.
+        </EmptyState>
       ) : (
         <div className="table-wrap">
           <table>
@@ -80,25 +86,30 @@ export function StampWeek(props: {
         </div>
       )}
 
-      <div className="toolbar" style={{ marginTop: '0.75rem', alignItems: 'end' }}>
-        <div className="field" style={{ margin: 0 }}>
+      <div className="toolbar" style={{ marginTop: '1rem', alignItems: 'end' }}>
+        <div className="field" style={{ margin: 0, minWidth: '12rem' }}>
           <label htmlFor={`${id}-date`}>Slip date</label>
-          <input
-            id={`${id}-date`}
-            type="date"
-            value={slipDate}
-            onChange={(e) => setSlipDate(e.target.value)}
-          />
+          <div className="date-wrap">
+            <input
+              id={`${id}-date`}
+              type="date"
+              value={slipDate}
+              onChange={(e) => setSlipDate(e.target.value)}
+            />
+          </div>
         </div>
-        <a
-          className="button primary"
-          href={anything ? `/reports/ris?date=${from}&on=${slipDate}` : undefined}
-          aria-disabled={!anything}
-          onClick={(e) => !anything && e.preventDefault()}
-          download
-        >
-          Requisition slip (Excel)
-        </a>
+        <PreviewDialog
+          primary
+          disabled={!anything}
+          label="Requisition slip"
+          eyebrow={`Postage stamps · ${label}`}
+          title="Requisition and issue slip"
+          previewUrl={`${slipUrl}&format=pdf&inline=1`}
+          downloads={[
+            { label: 'Download Excel', href: slipUrl },
+            { label: 'Download PDF', href: `${slipUrl}&format=pdf` },
+          ]}
+        />
         <button type="button" onClick={copy} disabled={rows.length === 0}>
           Copy rows for the accountability report
         </button>
@@ -114,7 +125,12 @@ export function StampWeek(props: {
           <p className="notice err">
             The browser would not copy. Select the rows below and copy them yourself.
           </p>
-          <textarea readOnly rows={rows.length + 1} value={tsv} onFocus={(e) => e.target.select()} />
+          <textarea
+            readOnly
+            rows={rows.length + 1}
+            value={tsv}
+            onFocus={(e) => e.target.select()}
+          />
         </div>
       )}
     </section>

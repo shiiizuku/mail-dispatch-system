@@ -42,7 +42,7 @@ const usDate = (iso: string) => {
  * One requisition and issue slip for postage stamps, laid out like the office's "RIS ICA" sheet:
  * the top half of a Letter page, medium frame, thin inner lines, Times New Roman.
  */
-export function buildRequisitionSlip(input: RisInput): Uint8Array {
+export function requisitionSlipSheet(input: RisInput): Sheet {
   const items = input.items.filter((i) => i.quantity > 0);
   if (items.length === 0) throw new Error('There are no stamps to request for this week');
   if (items.length > 7) throw new Error('A slip has room for seven kinds of stamp');
@@ -128,7 +128,7 @@ export function buildRequisitionSlip(input: RisInput): Uint8Array {
     put(23, person.name, name);
     put(24, person.designation, {
       font: f(person.designation.length > 28 ? 9 : 10, { bold: true }),
-      align: { ...centerBottom, wrap: true },
+      align: centerBottom,
     });
   }
   if (input.date) sheet.set('C25', text(usDate(input.date)), name);
@@ -147,8 +147,12 @@ export function buildRequisitionSlip(input: RisInput): Uint8Array {
     centerHorizontally: true,
     printArea: '$A$1:$H$25',
   };
-  return sheet.toXlsx();
+  return sheet;
 }
+
+/** The requisition and issue slip as an .xlsx file. */
+export const buildRequisitionSlip = (input: RisInput): Uint8Array =>
+  requisitionSlipSheet(input).toXlsx();
 
 // ── Report of Accountability for Accountable Forms ──────────────────────────
 
@@ -209,7 +213,7 @@ export interface AccountabilityInput {
 }
 
 /** The whole report for a period, in the Google Sheet's layout, amounts by formula. */
-export function buildAccountabilityReport(input: AccountabilityInput): Uint8Array {
+export function accountabilityReportSheet(input: AccountabilityInput): Sheet {
   const sheet = new Sheet('REPORT');
   sheet.columns({ A: 13, B: 17, C: 10, D: 13, E: 10, F: 13, G: 10, H: 13, I: 10, J: 13 });
 
@@ -270,5 +274,9 @@ export function buildAccountabilityReport(input: AccountabilityInput): Uint8Arra
     margins: { left: 0.5, right: 0.5, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 },
     centerHorizontally: true,
   };
-  return sheet.toXlsx();
+  return sheet;
 }
+
+/** The accountability report as an .xlsx file. */
+export const buildAccountabilityReport = (input: AccountabilityInput): Uint8Array =>
+  accountabilityReportSheet(input).toXlsx();

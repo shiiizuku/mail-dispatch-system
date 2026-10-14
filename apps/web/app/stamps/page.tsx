@@ -1,6 +1,12 @@
 import { mailService } from '@/lib/mail';
 import { today } from '@/lib/dates';
-import { AccountabilityReportForm, AddStampsForm, ControlCounterForm, SignatoriesForm } from './forms';
+import { EmptyState, UrgentPill } from '../ui';
+import {
+  AccountabilityReportForm,
+  AddStampsForm,
+  ControlCounterForm,
+  SignatoriesForm,
+} from './forms';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,52 +38,62 @@ export default async function StampsPage() {
 
   return (
     <>
-      <h1>Stamps &amp; settings</h1>
-      <div className="layout" style={{ marginTop: '1rem' }}>
-        <div style={{ display: 'grid', gap: '1.25rem' }}>
+      <header className="page-header">
+        <div>
+          <span className="eyebrow">Stamps &amp; settings</span>
+          <h1>₱{value.toLocaleString('en-PH')} in stamps</h1>
+          <p>On hand now, across {denominations.length} kinds of stamp.</p>
+        </div>
+      </header>
+      <div className="layout">
+        <div className="stack">
           <AddStampsForm denominations={denominations} today={now} />
           <AccountabilityReportForm month={now.slice(0, 7)} />
           <ControlCounterForm year={year} lastSeq={lastSeq} />
           <SignatoriesForm value={signatories} />
         </div>
 
-        <div style={{ display: 'grid', gap: '1.25rem' }}>
-          <section className="card" aria-labelledby="stock-heading">
+        <div className="stack">
+          <section aria-labelledby="stock-heading">
             <h2 id="stock-heading">Stamps on hand</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Stamp</th>
-                  <th className="num">On hand</th>
-                  <th className="num">Value</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {denominations.map((d) => (
-                  <tr key={d}>
-                    <td>₱{d}</td>
-                    <td className="num">{onHand(d)}</td>
-                    <td className="num">₱{d * onHand(d)}</td>
-                    <td>{onHand(d) < LOW_STOCK && <span className="status RETURNED">low</span>}</td>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Stamp</th>
+                    <th className="num">On hand</th>
+                    <th className="num">Value</th>
+                    <th />
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td>Total</td>
-                  <td />
-                  <td className="num">₱{value}</td>
-                  <td />
-                </tr>
-              </tfoot>
-            </table>
+                </thead>
+                <tbody>
+                  {denominations.map((d) => (
+                    <tr key={d}>
+                      <td className="tracking-number">₱{d}</td>
+                      <td className="num">{onHand(d)}</td>
+                      <td className="num">₱{(d * onHand(d)).toLocaleString('en-PH')}</td>
+                      <td>{onHand(d) < LOW_STOCK && <UrgentPill>Low</UrgentPill>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td>Total</td>
+                    <td />
+                    <td className="num">₱{value.toLocaleString('en-PH')}</td>
+                    <td />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </section>
 
-          <section className="card" aria-labelledby="moves-heading">
+          <section aria-labelledby="moves-heading">
             <h2 id="moves-heading">Recent stamp movements</h2>
             {movements.length === 0 ? (
-              <p className="empty">No movements yet.</p>
+              <EmptyState title="No stamp movements yet">
+                Stamps received, used on letters and corrected are listed here.
+              </EmptyState>
             ) : (
               <div className="table-wrap">
                 <table>
@@ -94,7 +110,7 @@ export default async function StampsPage() {
                     {movements.slice(0, 30).map((m) => (
                       <tr key={m.id}>
                         <td className="nowrap">{m.forDate}</td>
-                        <td>₱{m.denomination}</td>
+                        <td className="tracking-number">₱{m.denomination}</td>
                         <td className="num">{m.change > 0 ? `+${m.change}` : m.change}</td>
                         <td>{REASONS[m.reason] ?? m.reason.toLowerCase()}</td>
                         <td>{m.note}</td>

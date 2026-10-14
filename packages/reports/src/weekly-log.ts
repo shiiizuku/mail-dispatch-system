@@ -66,7 +66,7 @@ const H = {
   nothing: 30.75,
 };
 
-export function buildWeeklyLog(input: WeeklyLogInput): Uint8Array {
+export function weeklyLogSheet(input: WeeklyLogInput): Sheet {
   const denominations = input.denominations ?? DEFAULT_DENOMINATIONS;
   const stampCols = [...'OPQRST'].slice(0, denominations.length);
   const lastStamp = stampCols.at(-1)!;
@@ -161,8 +161,12 @@ export function buildWeeklyLog(input: WeeklyLogInput): Uint8Array {
     centerHorizontally: true,
     printArea: `$A$1:$M$${lastRow}`,
   };
-  return sheet.toXlsx();
+  return sheet;
 }
+
+/** The weekly log as an .xlsx file. */
+export const buildWeeklyLog = (input: WeeklyLogInput): Uint8Array =>
+  weeklyLogSheet(input).toXlsx();
 
 // ── From a saved letter ─────────────────────────────────────────────────────
 

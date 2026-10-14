@@ -4,6 +4,8 @@ import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import type { Mailpiece, MailpieceStatus } from '@mds/mail';
 import { markPrinted, setLetterStatus, type FormState } from './actions';
+import { EmptyState, StatusPill } from './ui';
+import { PreviewDialog } from './preview-dialog';
 
 const DENOMINATIONS = [35, 17, 16, 12, 5, 1];
 
@@ -49,31 +51,28 @@ export function LettersTable({ letters, links }: { letters: Mailpiece[]; links: 
       return next;
     });
 
-  const run = (fn: () => Promise<FormState>) =>
-    startTransition(async () => setNotice(await fn()));
+  const run = (fn: () => Promise<FormState>) => startTransition(async () => setNotice(await fn()));
 
   const printIds = (chosen.length ? chosen : printable.filter((l) => l.status === 'PREPARED')).map(
     (l) => l.id,
   );
 
   return (
-    <section className="card" aria-labelledby="letters-heading">
+    <section aria-labelledby="letters-heading">
       <div className="toolbar">
-        <h2 id="letters-heading" style={{ margin: 0 }}>
-          Letters
-        </h2>
+        <h2 id="letters-heading">Letters</h2>
         <span className="spacer" />
-        <a
-          className="button primary"
-          href={printIds.length ? `/envelopes?ids=${printIds.join(',')}` : undefined}
-          target="_blank"
-          rel="noopener"
-          aria-disabled={printIds.length === 0}
-          onClick={(e) => printIds.length === 0 && e.preventDefault()}
-        >
-          Print envelopes ({printIds.length}
-          {chosen.length ? ' selected' : ' not yet printed'})
-        </a>
+        <PreviewDialog
+          primary
+          disabled={printIds.length === 0}
+          label={`Print envelopes (${printIds.length}${chosen.length ? ' selected' : ' not yet printed'})`}
+          eyebrow="#10 envelopes · 241 × 105 mm"
+          title={`${printIds.length} envelope${printIds.length === 1 ? '' : 's'}`}
+          previewUrl={`/envelopes?ids=${printIds.join(',')}`}
+          downloads={[
+            { label: 'Download PDF', href: `/envelopes?ids=${printIds.join(',')}&download=1` },
+          ]}
+        />
         <button
           type="button"
           disabled={pending || printIds.length === 0}
@@ -90,7 +89,9 @@ export function LettersTable({ letters, links }: { letters: Mailpiece[]; links: 
       )}
 
       {letters.length === 0 ? (
-        <p className="empty">No letters this week yet.</p>
+        <EmptyState title="No letters this week">
+          Letters saved with a mail date in this week appear here.
+        </EmptyState>
       ) : (
         <div className="table-wrap">
           <table>
@@ -144,8 +145,8 @@ export function LettersTable({ letters, links }: { letters: Mailpiece[]; links: 
                     )}
                   </td>
                   <td className="num">{i + 1}</td>
-                  <td className="nowrap">
-                    {l.controlNo}
+                  <td className="nowrap strike">
+                    <span className="tracking-number">{l.controlNo}</span>
                     {links[l.id]?.remailOf && (
                       <div className="hint">Remail of {links[l.id]!.remailOf}</div>
                     )}
@@ -155,10 +156,12 @@ export function LettersTable({ letters, links }: { letters: Mailpiece[]; links: 
                   </td>
                   <td className="nowrap">
                     {l.docRefs.map((r) => (
-                      <div key={r}>{r}</div>
+                      <div key={r} className="tracking-number">
+                        {r}
+                      </div>
                     ))}
                   </td>
-                  <td>
+                  <td className="strike">
                     {l.recipientName}
                     {l.recipientCompany && <div className="hint">{l.recipientCompany}</div>}
                     {l.remarks && <div className="hint">{l.remarks}</div>}
@@ -180,7 +183,7 @@ export function LettersTable({ letters, links }: { letters: Mailpiece[]; links: 
                     </td>
                   ))}
                   <td>
-                    <span className={`status ${l.status}`}>{l.status.toLowerCase()}</span>
+                    <StatusPill status={l.status} />
                   </td>
                   <td>
                     <div className="actions">
@@ -188,7 +191,7 @@ export function LettersTable({ letters, links }: { letters: Mailpiece[]; links: 
                         <button
                           key={a.to}
                           type="button"
-                          className="small"
+                          className={a.to === 'CANCELLED' ? 'small danger' : 'small'}
                           disabled={pending}
                           onClick={() => {
                             if (

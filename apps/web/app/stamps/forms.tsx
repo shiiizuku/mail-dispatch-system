@@ -1,8 +1,9 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import type { Signatories } from '@mds/mail';
 import { addStamps, saveSignatories, setControlCounter, type FormState } from '../actions';
+import { PreviewDialog } from '../preview-dialog';
 
 function Notice({ state }: { state: FormState }) {
   if (!state) return null;
@@ -13,7 +14,13 @@ function Notice({ state }: { state: FormState }) {
   );
 }
 
-export function AddStampsForm({ denominations, today }: { denominations: number[]; today: string }) {
+export function AddStampsForm({
+  denominations,
+  today,
+}: {
+  denominations: number[];
+  today: string;
+}) {
   const [state, action, pending] = useActionState<FormState, FormData>(addStamps, null);
   return (
     <form className="card" action={action} aria-labelledby="add-heading">
@@ -24,16 +31,18 @@ export function AddStampsForm({ denominations, today }: { denominations: number[
           <label htmlFor="denomination" className="req">
             Stamp
           </label>
-          <select id="denomination" name="denomination" required defaultValue="">
-            <option value="" disabled>
-              Choose…
-            </option>
-            {denominations.map((d) => (
-              <option key={d} value={d}>
-                ₱{d}
+          <div className="select-wrap">
+            <select id="denomination" name="denomination" required defaultValue="">
+              <option value="" disabled>
+                Choose…
               </option>
-            ))}
-          </select>
+              {denominations.map((d) => (
+                <option key={d} value={d}>
+                  ₱{d}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
         <div className="field">
           <label htmlFor="quantity" className="req">
@@ -55,17 +64,30 @@ export function AddStampsForm({ denominations, today }: { denominations: number[
           <label htmlFor="forDate" className="req">
             Date received
           </label>
-          <input type="date" id="forDate" name="forDate" required defaultValue={today} />
+          <div className="date-wrap">
+            <input type="date" id="forDate" name="forDate" required defaultValue={today} />
+          </div>
         </div>
         <div className="field">
           <label htmlFor="note">Note</label>
-          <input type="text" id="note" name="note" maxLength={200} placeholder="e.g. Additional 3rd qtr" />
+          <input
+            type="text"
+            id="note"
+            name="note"
+            maxLength={200}
+            placeholder="e.g. Additional 3rd qtr"
+          />
         </div>
       </div>
       <span id="quantity-hint" className="hint">
         For a correction, choose “Count correction” and enter a negative number to remove stamps.
       </span>
-      <div className="field" role="radiogroup" aria-labelledby="reason-label" style={{ marginTop: '0.5rem' }}>
+      <div
+        className="field"
+        role="radiogroup"
+        aria-labelledby="reason-label"
+        style={{ marginTop: '0.5rem' }}
+      >
         <span className="label" id="reason-label">
           Reason
         </span>
@@ -92,8 +114,8 @@ export function ControlCounterForm({ year, lastSeq }: { year: number; lastSeq: n
       <h2 id="counter-heading">Control numbers</h2>
       <Notice state={state} />
       <p className="hint" style={{ marginTop: 0 }}>
-        The next letter in {year} will be number <strong>{lastSeq + 1}</strong>. To continue from the
-        old Access numbering, enter the last number Access used (e.g. 696 for MGB-10-696).
+        The next letter in {year} will be number <strong>{lastSeq + 1}</strong>. To continue from
+        the old Access numbering, enter the last number Access used (e.g. 696 for MGB-10-696).
       </p>
       <input type="hidden" name="year" value={year} />
       <div className="field">
@@ -117,22 +139,51 @@ export function ControlCounterForm({ year, lastSeq }: { year: number; lastSeq: n
   );
 }
 
-export function AccountabilityReportForm({ month }: { month: string }) {
+export function AccountabilityReportForm({ month: initial }: { month: string }) {
+  const [month, setMonth] = useState(initial);
+  const valid = /^\d{4}-(0[1-9]|1[0-2])$/.test(month);
+  const url = `/reports/accountability?month=${month}`;
+  const period = valid
+    ? new Date(Number(month.slice(0, 4)), Number(month.slice(5)) - 1, 1).toLocaleString('en-PH', {
+        month: 'long',
+        year: 'numeric',
+      })
+    : '';
   return (
-    <form className="card" action="/reports/accountability" method="get" aria-labelledby="raaf-heading">
+    <section className="card" aria-labelledby="raaf-heading">
       <h2 id="raaf-heading">Accountability report</h2>
       <p className="hint" style={{ marginTop: 0 }}>
-        Report of Accountability for Accountable Forms for one month, in Excel: one block per week,
-        with beginning balance, receipts, stamps issued and ending balance.
+        Report of Accountability for Accountable Forms for one month: one block per week, with
+        beginning balance, receipts, stamps issued and ending balance. Excel or PDF.
       </p>
       <div className="field">
         <label htmlFor="month" className="req">
           Month
         </label>
-        <input type="month" id="month" name="month" required defaultValue={month} />
+        <div className="date-wrap">
+          <input
+            type="month"
+            id="month"
+            name="month"
+            required
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
+          />
+        </div>
       </div>
-      <button type="submit">Download (Excel)</button>
-    </form>
+      <PreviewDialog
+        primary
+        disabled={!valid}
+        label="Preview report"
+        eyebrow="Report of Accountability for Accountable Forms"
+        title={period}
+        previewUrl={`${url}&format=pdf&inline=1`}
+        downloads={[
+          { label: 'Download Excel', href: url },
+          { label: 'Download PDF', href: `${url}&format=pdf` },
+        ]}
+      />
+    </section>
   );
 }
 
@@ -170,12 +221,17 @@ export function SignatoriesForm({ value }: { value: Signatories }) {
         </div>
       </div>
       {PEOPLE.map(([key, label]) => (
-        <fieldset key={key} style={{ marginBottom: '0.5rem' }}>
-          <legend>{label}</legend>
+        <fieldset key={key} style={{ marginBottom: '0.25rem' }}>
+          <legend style={{ fontSize: '1.0625rem' }}>{label}</legend>
           <div className="row">
             <div className="field">
               <label htmlFor={`${key}.name`}>Printed name</label>
-              <input type="text" id={`${key}.name`} name={`${key}.name`} defaultValue={value[key].name} />
+              <input
+                type="text"
+                id={`${key}.name`}
+                name={`${key}.name`}
+                defaultValue={value[key].name}
+              />
             </div>
             <div className="field">
               <label htmlFor={`${key}.designation`}>Designation</label>
