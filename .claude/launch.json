@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mail-desk",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "-w", "@mds/web"],
+      "port": 3010
+    }
+  ]
+}

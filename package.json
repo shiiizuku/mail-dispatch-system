@@ -1,0 +1,25 @@
+{
+  "name": "mail-dispatch-system",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @mds/postage && npm run build -w @mds/envelope && npm run build -w @mds/reports && npm run build -w @mds/mail && npm run build -w @mds/web",
+    "test": "npm run build -w @mds/postage && npm run build -w @mds/envelope && npm run build -w @mds/reports && npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "dev": "npm run dev -w @mds/web",
+    "db:up": "docker compose -p mds up -d",
+    "db:migrate": "npm run db:migrate -w @mds/mail"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.2"
+  }
+}
