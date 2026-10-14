@@ -1,0 +1,25 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  quality:
+    name: typecheck · test · build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # The packages are consumed through their built, gitignored `dist/` folders, so they are
+      # built before anything that imports them is type-checked. This also builds the web app.
+      - run: npm run build
+      - run: npm run typecheck
+      # The database tests run against PGlite (Postgres in memory), so no database service is
+      # needed. Without Windows fonts, the PDF tests fall back to Helvetica.
+      - run: npm test
+      - run: docker compose config --quiet

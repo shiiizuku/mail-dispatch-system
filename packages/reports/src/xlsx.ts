@@ -196,6 +196,11 @@ export class Sheet {
     cell.style = { ...cell.style, border: { ...cell.style.border, [side]: edge } };
   }
 
+  /** The cells as they display and print: merges resolved, formulas worked out, numbers formatted. */
+  layout(): SheetLayout {
+    return layoutOf(this.name, this.rows, this.merges, this.widths, this.page, this.headerImage);
+  }
+
   /** The finished workbook, as the bytes of an .xlsx file. */
   toXlsx(): Uint8Array {
     const styles = new StyleTable();
@@ -303,6 +308,192 @@ ${this.headerImage ? '<headerFooter scaleWithDoc="0"><oddHeader>&amp;C&amp;G</od
     }
     return zipSync(files, { level: 6 });
   }
+}
+
+// ── Layout (for drawing the sheet outside Excel) ─────────────────────────────
+
+const DEFAULT_COL = 8.43;
+
+/** Works out the few formulas these reports write: numbers, cell refs, SUM(range), + - * / and ( ). */
+function evaluate(src: string, valueOf: (ref: string) => number): number | null {
+  const tokens = src.toUpperCase().match(/SUM|[A-Z]+\d+(?::[A-Z]+\d+)?|\d+(?:\.\d+)?|[-+*/()]/g);
+  if (!tokens || tokens.join('') !== src.toUpperCase().replace(/\s+/g, '')) return null;
+  let i = 0;
+  const peek = () => tokens[i];
+  const next = () => tokens[i++];
+  const range = (r: string) => {
+    const { c1, r1, c2, r2 } = parseRange(r);
+    let sum = 0;
+    for (let row = r1; row <= r2; row++) {
+      for (let c = c1; c <= c2; c++) sum += valueOf(`${COLS[c]}${row}`);
+    }
+    return sum;
+  };
+  const primary = (): number => {
+    const t = next();
+    if (t === undefined) throw new Error('end');
+    if (t === '(') {
+      const v = expr();
+      if (next() !== ')') throw new Error(')');
+      return v;
+    }
+    if (t === '-') return -primary();
+    if (t === 'SUM') {
+      if (next() !== '(') throw new Error('(');
+      const arg = next()!;
+      if (next() !== ')') throw new Error(')');
+      return range(arg);
+    }
+    if (/^\d/.test(t)) return Number(t);
+    if (/^[A-Z]+\d+$/.test(t)) return valueOf(t);
+    throw new Error(t);
+  };
+  const term = (): number => {
+    let v = primary();
+    while (peek() === '*' || peek() === '/') v = next() === '*' ? v * primary() : v / primary();
+    return v;
+  };
+  const expr = (): number => {
+    let v = term();
+    while (peek() === '+' || peek() === '-') v = next() === '+' ? v + term() : v - term();
+    return v;
+  };
+  try {
+    const v = expr();
+    return i === tokens.length && Number.isFinite(v) ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** A number as its cell's format shows it. Only the formats these reports use. */
+function formatNumber(n: number, numFmt?: string): string {
+  if (numFmt === '#,##0.00') {
+    return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  if (numFmt === 'mmm d, yyyy') {
+    const d = new Date(Date.UTC(1899, 11, 30) + Math.round(n) * 86_400_000);
+    return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
+  }
+  return String(Math.round(n * 1e6) / 1e6);
+}
+
+export interface LaidOutCell {
+  row: number;
+  /** 0-based column index. */
+  col: number;
+  rowSpan: number;
+  colSpan: number;
+  /** As displayed: formulas worked out, numbers in their cell's format. */
+  text: string;
+  style: Style;
+  /** For a merged cell, its outer edges, taken from the cells along each edge of the range. */
+  border: NonNullable<Style['border']>;
+}
+
+/** A sheet as it displays and prints, for drawing it somewhere other than Excel. */
+export interface SheetLayout {
+  name: string;
+  /** Excel character widths, one per column from A to the last used. */
+  colWidths: number[];
+  /** Points, one per row from row 1. */
+  rowHeights: number[];
+  cells: LaidOutCell[];
+  page: PageSetup;
+  /** Last printed row and 0-based column. */
+  printArea: { lastRow: number; lastCol: number };
+  headerImage: { data: Uint8Array; widthPt: number; heightPt: number } | null;
+}
+
+function layoutOf(
+  name: string,
+  rows: Map<number, { height?: number; cells: Map<number, Cell> }>,
+  merges: string[],
+  widths: Map<number, number>,
+  page: PageSetup,
+  headerImage: SheetLayout['headerImage'],
+): SheetLayout {
+  const lastRow = Math.max(1, ...rows.keys());
+  const lastCol = Math.max(
+    0,
+    ...[...rows.values()].flatMap((r) => [...r.cells.keys()]),
+    ...widths.keys(),
+  );
+  const cellAt = (r: number, c: number) => rows.get(r)?.cells.get(c);
+
+  const cache = new Map<string, number>();
+  const computing = new Set<string>();
+  const valueOf = (ref: string): number => {
+    const known = cache.get(ref);
+    if (known !== undefined) return known;
+    const { c1, r1 } = parseRange(ref);
+    const v = cellAt(r1, c1)?.v;
+    let n = 0;
+    if (v && 'num' in v) n = v.num;
+    else if (v && 'formula' in v && !computing.has(ref)) {
+      computing.add(ref);
+      n = evaluate(v.formula, valueOf) ?? 0;
+      computing.delete(ref);
+    }
+    cache.set(ref, n);
+    return n;
+  };
+
+  const spans = new Map<string, { r2: number; c2: number }>();
+  const covered = new Set<string>();
+  for (const m of merges) {
+    const { c1, r1, c2, r2 } = parseRange(m);
+    spans.set(`${r1}:${c1}`, { r2, c2 });
+    for (let r = r1; r <= r2; r++) {
+      for (let c = c1; c <= c2; c++) if (r !== r1 || c !== c1) covered.add(`${r}:${c}`);
+    }
+  }
+
+  const cells: LaidOutCell[] = [];
+  for (const [r, row] of rows) {
+    for (const [c, cell] of row.cells) {
+      if (covered.has(`${r}:${c}`)) continue;
+      const span = spans.get(`${r}:${c}`);
+      const style = cell.style;
+      const border: NonNullable<Style['border']> = { ...style.border };
+      if (span) {
+        const right = cellAt(r, span.c2)?.style.border?.right;
+        const bottom = cellAt(span.r2, c)?.style.border?.bottom;
+        if (right) border.right = right;
+        else delete border.right;
+        if (bottom) border.bottom = bottom;
+        else delete border.bottom;
+      }
+      const v = cell.v;
+      let shown = '';
+      if (v && 'text' in v) shown = v.text;
+      else if (v && 'num' in v) shown = formatNumber(v.num, style.numFmt);
+      else if (v && 'formula' in v) shown = formatNumber(valueOf(`${COLS[c]}${r}`), style.numFmt);
+      cells.push({
+        row: r,
+        col: c,
+        rowSpan: span ? span.r2 - r + 1 : 1,
+        colSpan: span ? span.c2 - c + 1 : 1,
+        text: shown,
+        style,
+        border,
+      });
+    }
+  }
+  cells.sort((a, b) => a.row - b.row || a.col - b.col);
+
+  const area = page.printArea?.match(/^\$?([A-Z])\$?(\d+):\$?([A-Z])\$?(\d+)$/);
+  return {
+    name,
+    colWidths: Array.from({ length: lastCol + 1 }, (_, c) => widths.get(c) ?? DEFAULT_COL),
+    rowHeights: Array.from({ length: lastRow }, (_, i) => rows.get(i + 1)?.height ?? 15),
+    cells,
+    page,
+    printArea: area ? { lastCol: colIndex(area[3]!), lastRow: Number(area[4]) } : { lastCol, lastRow },
+    headerImage,
+  };
 }
 
 /** Collects distinct fonts, fills, borders and formats into styles.xml. */

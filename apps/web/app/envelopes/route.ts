@@ -3,10 +3,12 @@ import { mailService } from '@/lib/mail';
 
 /**
  * GET /envelopes?ids=a,b,c → one PDF, one #10 envelope per page, in control-number order.
- * Read-only: marking the letters printed is a separate step, after the printout is checked.
+ * Shown in the browser (the preview dialog); `&download=1` saves it instead. Read-only: marking the
+ * letters printed is a separate step, after the printout is checked.
  */
 export async function GET(request: Request) {
-  const ids = (new URL(request.url).searchParams.get('ids') ?? '')
+  const params = new URL(request.url).searchParams;
+  const ids = (params.get('ids') ?? '')
     .split(',')
     .map((s) => s.trim())
     .filter((s) => /^[0-9a-f-]{36}$/i.test(s));
@@ -30,7 +32,7 @@ export async function GET(request: Request) {
   return new Response(new Uint8Array(pdf), {
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="envelopes ${first}${first === last ? '' : ` to ${last}`}.pdf"`,
+      'Content-Disposition': `${params.get('download') === '1' ? 'attachment' : 'inline'}; filename="envelopes ${first}${first === last ? '' : ` to ${last}`}.pdf"`,
       'Cache-Control': 'no-store',
     },
   });

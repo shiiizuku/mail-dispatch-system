@@ -6,9 +6,7 @@ import { mailService } from '@/lib/mail';
 import { isValidIsoDate } from '@/lib/dates';
 
 export type FormState =
-  | { ok: true; message: string; at: number }
-  | { ok: false; message: string; at: number }
-  | null;
+  { ok: true; message: string; at: number } | { ok: false; message: string; at: number } | null;
 
 const text = (form: FormData, key: string) => String(form.get(key) ?? '').trim();
 const failure = (e: unknown): FormState => ({
@@ -18,8 +16,16 @@ const failure = (e: unknown): FormState => ({
 });
 
 /** Document numbers typed one per line or separated by commas. */
-const splitRefs = (s: string) => s.split(/[\n,;]+/).map((r) => r.trim()).filter(Boolean);
-const splitLines = (s: string) => s.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+const splitRefs = (s: string) =>
+  s
+    .split(/[\n,;]+/)
+    .map((r) => r.trim())
+    .filter(Boolean);
+const splitLines = (s: string) =>
+  s
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
 
 export async function createLetter(_prev: FormState, form: FormData): Promise<FormState> {
   try {
@@ -84,7 +90,11 @@ export async function setLetterStatus(id: string, status: MailpieceStatus): Prom
     const piece = await mailService().setStatus(id, status);
     revalidatePath('/');
     revalidatePath('/stamps');
-    return { ok: true, message: `${piece.controlNo} is now ${status.toLowerCase()}.`, at: Date.now() };
+    return {
+      ok: true,
+      message: `${piece.controlNo} is now ${status.toLowerCase()}.`,
+      at: Date.now(),
+    };
   } catch (e) {
     return failure(e);
   }
@@ -107,7 +117,8 @@ export async function addStamps(_prev: FormState, form: FormData): Promise<FormS
     const reason = text(form, 'reason') === 'CORRECTION' ? 'CORRECTION' : 'PURCHASE';
     const forDate = text(form, 'forDate');
     if (!isValidIsoDate(forDate)) throw new Error('Enter the date');
-    if (reason === 'PURCHASE' && quantity < 0) throw new Error('Use Count correction to remove stamps');
+    if (reason === 'PURCHASE' && quantity < 0)
+      throw new Error('Use Count correction to remove stamps');
     await mailService().addStamps(denomination, quantity, {
       reason,
       forDate,
@@ -163,7 +174,11 @@ export async function saveSignatories(_prev: FormState, form: FormData): Promise
     }
     await mailService().saveSignatories(value);
     revalidatePath('/stamps');
-    return { ok: true, message: 'Saved. New requisition slips will use these names.', at: Date.now() };
+    return {
+      ok: true,
+      message: 'Saved. New requisition slips will use these names.',
+      at: Date.now(),
+    };
   } catch (e) {
     return failure(e);
   }

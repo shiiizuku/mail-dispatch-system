@@ -4,6 +4,7 @@ import { accountabilityRows } from '@mds/reports';
 import { isValidIsoDate, shiftDays, today, weekLabel, weekOf, weekOfMonthLabel } from '@/lib/dates';
 import { LetterForm, type RemailDraft } from './letter-form';
 import { LettersTable } from './letters-table';
+import { PreviewDialog } from './preview-dialog';
 import { StampWeek } from './stamp-week';
 
 export const dynamic = 'force-dynamic';
@@ -28,29 +29,38 @@ export default async function LettersPage({
 
   return (
     <>
-      <div className="week-nav">
-        <h1>{weekLabel(day)}</h1>
-        <span className="range">
-          {from} to {to}
-        </span>
-        <Link className="button" href={`/?date=${shiftDays(from, -7)}`}>
-          ← Previous week
-        </Link>
-        {(now < from || now > to) && (
-          <Link className="button" href="/">
-            This week
+      <header className="page-header">
+        <div>
+          <span className="eyebrow">Letters · {weekRange(from, to)}</span>
+          <h1>{weekLabel(day)}</h1>
+        </div>
+        <nav className="header-actions" aria-label="Weeks">
+          <Link className="button" href={`/?date=${shiftDays(from, -7)}`}>
+            ← Previous week
           </Link>
-        )}
-        <Link className="button" href={`/?date=${shiftDays(from, 7)}`}>
-          Next week →
-        </Link>
-        <a className="button" href={`/reports/weekly?date=${from}`} download>
-          Download weekly log (Excel)
-        </a>
-      </div>
+          {(now < from || now > to) && (
+            <Link className="button" href="/">
+              This week
+            </Link>
+          )}
+          <Link className="button" href={`/?date=${shiftDays(from, 7)}`}>
+            Next week →
+          </Link>
+          <PreviewDialog
+            label="Weekly log"
+            eyebrow={weekRange(from, to)}
+            title={`Weekly log · ${weekLabel(day)}`}
+            previewUrl={`/reports/weekly?date=${from}&format=pdf&inline=1`}
+            downloads={[
+              { label: 'Download Excel', href: `/reports/weekly?date=${from}` },
+              { label: 'Download PDF', href: `/reports/weekly?date=${from}&format=pdf` },
+            ]}
+          />
+        </nav>
+      </header>
       <div className="layout">
         <LetterForm defaultDate={defaultDate} remail={remail} />
-        <div>
+        <div className="stack">
           <LettersTable letters={letters} links={links} />
           <StampWeek
             from={from}
@@ -65,8 +75,20 @@ export default async function LettersPage({
   );
 }
 
+/** "12–18 Oct 2026", or "28 Sep – 4 Oct 2026" across a month end. */
+function weekRange(from: string, to: string): string {
+  const d = (iso: string) => new Date(`${iso}T00:00:00`);
+  const a = d(from);
+  const b = d(to);
+  const month = (x: Date) => x.toLocaleString('en-PH', { month: 'short' });
+  return a.getMonth() === b.getMonth()
+    ? `${a.getDate()}–${b.getDate()} ${month(b)} ${b.getFullYear()}`
+    : `${a.getDate()} ${month(a)} – ${b.getDate()} ${month(b)} ${b.getFullYear()}`;
+}
+
 const isUuid = (s: unknown): s is string =>
-  typeof s === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+  typeof s === 'string' &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
 /** The letter to send again, with its recipient as the address book has them now. */
 async function loadRemail(id: string): Promise<RemailDraft | null> {

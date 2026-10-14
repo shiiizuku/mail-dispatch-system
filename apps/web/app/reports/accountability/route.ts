@@ -1,10 +1,12 @@
-import { buildAccountabilityReport } from '@mds/reports';
+import { accountabilityReportSheet } from '@mds/reports';
+import { sheetResponse } from '@/lib/files';
 import { mailService } from '@/lib/mail';
 import { isValidMonth, today, weekOfMonthLabel, weeksOfMonth } from '@/lib/dates';
 
 /**
  * GET /reports/accountability?month=YYYY-MM → the Report of Accountability for Accountable Forms
  * for that month: one block per week (Monday in the month) in which stamps came in or went out.
+ * Excel, or PDF with ?format=pdf.
  */
 export async function GET(request: Request) {
   const month = new URL(request.url).searchParams.get('month');
@@ -23,12 +25,9 @@ export async function GET(request: Request) {
     .toLocaleString('en-PH', { month: 'long', year: 'numeric' })
     .toUpperCase();
 
-  const xlsx = buildAccountabilityReport({ period, blocks });
-  return new Response(new Uint8Array(xlsx), {
-    headers: {
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': `attachment; filename="ACCOUNTABILITY - ${period}.xlsx"`,
-      'Cache-Control': 'no-store',
-    },
-  });
+  return sheetResponse(
+    request,
+    accountabilityReportSheet({ period, blocks }),
+    `ACCOUNTABILITY - ${period}`,
+  );
 }
