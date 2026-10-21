@@ -411,8 +411,8 @@ main {
 @media (min-width: 1201px) {
   .layout > :last-child {
     position: sticky;
-    top: 4.25rem; /* the compact page header (3.5rem) plus a gap */
-    max-height: calc(100vh - 5rem);
+    top: calc(var(--page-head-h, 8rem) + 1rem); /* below the pinned page header, set by compact-header.tsx */
+    max-height: calc(100vh - var(--page-head-h, 8rem) - 2rem);
     overflow-y: auto;
     /* Room for focus rings, which the scroll box would otherwise clip. */
     padding: 5px;
