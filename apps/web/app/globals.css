@@ -271,15 +271,21 @@ h2 {
 
 main {
   min-width: 0;
+  /* Lets the page header's backdrop measure the full width of the content area (cqw). */
+  container-type: inline-size;
 }
 .page {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 2rem 1.5rem 4rem;
-  display: grid;
-  /* One column no wider than the screen, whatever a long button or table inside asks for. */
-  grid-template-columns: minmax(0, 1fr);
+  padding: 0 1.5rem 4rem;
+  /* A flex column, not a grid: a sticky header in a grid row can only stick within that row. */
+  display: flex;
+  flex-direction: column;
   gap: 1.5rem;
+}
+/* One column no wider than the screen, whatever a long button or table inside asks for. */
+.page > * {
+  min-width: 0;
 }
 
 /* Below 1024px the sidebar becomes a bar across the top. */
@@ -319,7 +325,7 @@ main {
     font-size: 2.125rem;
   }
   .page {
-    padding: 1.5rem 1rem 3rem;
+    padding: 0 1rem 3rem;
   }
   button,
   .button {
@@ -336,6 +342,48 @@ main {
   align-items: flex-end;
   justify-content: space-between;
   gap: 1rem 1.5rem;
+  /* Pinned while the page scrolls; it bleeds over the page padding so nothing shows above it. */
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  margin-inline: -1.5rem;
+  padding: 2rem 1.5rem 0.875rem;
+}
+/* The backdrop runs edge to edge across the content area, not just the centred column. */
+.page-header::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  bottom: 0;
+  left: calc(50% - 50cqw);
+  width: 100cqw;
+  background: var(--background);
+  border-bottom: 1px solid transparent;
+}
+@media (max-width: 1023px) {
+  .page-header {
+    margin-inline: -1rem;
+    padding: 1.5rem 1rem 0.75rem;
+  }
+}
+/* Pinned and scrolled: just the title and the actions, on one line. */
+.page-header[data-stuck] {
+  align-items: center;
+  padding-block: 0.625rem;
+}
+.page-header[data-stuck] .eyebrow,
+.page-header[data-stuck] p {
+  display: none;
+}
+.page-header[data-stuck] h1 {
+  font-size: 1.375rem;
+  line-height: 1.2;
+}
+.page-header[data-stuck] .button {
+  min-height: 36px;
+  padding-inline: 1rem;
+  font-size: 14px;
 }
 .page-header p {
   margin: 0.5rem 0 0;
@@ -358,6 +406,19 @@ main {
   grid-template-columns: minmax(0, 1fr);
   gap: 1.5rem;
   min-width: 0;
+}
+/* Side by side, the right-hand column stays in view under the pinned header and scrolls inside itself if it is taller than the screen. */
+@media (min-width: 1201px) {
+  .layout > :last-child {
+    position: sticky;
+    top: 4.25rem; /* the compact page header (3.5rem) plus a gap */
+    max-height: calc(100vh - 5rem);
+    overflow-y: auto;
+    /* Room for focus rings, which the scroll box would otherwise clip. */
+    padding: 5px;
+    margin: -5px;
+    scrollbar-width: thin;
+  }
 }
 @media (max-width: 1200px) {
   .layout {
@@ -983,4 +1044,125 @@ dialog.preview::backdrop {
   padding: 0;
   border: 0;
   white-space: nowrap;
+}
+
+/* ── Motion ─────────────────────────────────────────────────────────── */
+/* One easing curve everywhere. All of it is off under prefers-reduced-motion. */
+
+@keyframes rv-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    scale: 0.95;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes head-stuck {
+  from {
+    border-bottom-color: transparent;
+    box-shadow: none;
+  }
+  to {
+    border-bottom-color: var(--border);
+    box-shadow: 0 6px 14px -10px rgb(0 0 0 / 0.35);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .page > :not(.page-header) {
+    animation: rv-in 0.28s cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+  .page-header {
+    animation: rv-in 0.28s cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+  .page-header[data-stuck] > * {
+    animation: fade-in 0.2s ease both;
+  }
+  @supports (animation-timeline: scroll()) {
+    .page-header::before {
+      animation: head-stuck linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 48px;
+    }
+  }
+  button,
+  .button {
+    transition-property: background-color, color, border-color, box-shadow, scale;
+    transition-duration: 180ms, 180ms, 180ms, 180ms, 120ms;
+  }
+  button:not(:disabled):hover,
+  .button:not([aria-disabled='true']):hover {
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.14);
+  }
+  button:not(:disabled):active,
+  .button:not([aria-disabled='true']):active {
+    scale: 0.97;
+    box-shadow: none;
+  }
+  input,
+  select,
+  textarea {
+    transition-duration: 300ms;
+  }
+  .nav a svg {
+    transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .nav a:hover svg {
+    transform: scale(1.08);
+  }
+  .theme-popover {
+    animation: pop-in 0.32s cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+  .notice {
+    animation: rv-in 0.2s cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+  dialog.preview[open] {
+    animation: dialog-in 0.22s cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+  dialog.preview[open]::backdrop {
+    animation: fade-in 0.2s ease both;
+  }
+  tbody tr {
+    transition: background-color 0.12s;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

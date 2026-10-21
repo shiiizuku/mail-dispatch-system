@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import localFont from 'next/font/local';
 import { themeBootScript } from '@/lib/theme';
+import { CompactHeader } from './compact-header';
 import { MainNav, ThemeControls } from './shell';
 import './globals.css';
 
@@ -55,6 +56,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ThemeControls />
           </aside>
           <main>
+            <CompactHeader />
             <div className="page">{children}</div>
           </main>
         </div>
